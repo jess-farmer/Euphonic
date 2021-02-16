@@ -202,10 +202,27 @@ static PyObject *calculate_phonons(PyObject *self, PyObject *args) {
     bool profile = true;
 
     omp_set_num_threads(n_threads);
+    struct timespec totpar_ti, totpar_tf;
+    double total_par_time;
+    if (profile) {
+        clock_gettime(CLOCK_REALTIME, &totpar_ti);
+    }
     #pragma omp parallel
     {
         const bool calc_dmat_grad = (modegs_len > 0) ? true : false;
         double *corr, *dmat_per_q, *dmat_grad;
+
+        int *n_calls;
+        double *call_time;
+        struct timespec ti, tf;
+        struct timespec totfor_ti, totfor_tf;
+        double total_for_time;
+        if (profile) {
+            total_for_time = 0;
+            n_calls = calloc(5, sizeof(int));
+            call_time = calloc(5, sizeof(double));
+        }
+
         if (dipole) {
             corr = (double*) malloc(dmat_elems*sizeof(double));
         }
@@ -222,20 +239,10 @@ static PyObject *calculate_phonons(PyObject *self, PyObject *args) {
         } else {
             dmat_grad = NULL;
         }
-        int *n_calls;
-        double *call_time;
-        struct timespec ti, tf;
-        struct timespec tot_ti, tot_tf;
-        double total_time;
-        if (profile) {
-            total_time = 0;
-            n_calls = calloc(5, sizeof(int));
-            call_time = calloc(5, sizeof(double));
-        }
         #pragma omp for
         for (q = 0; q < n_rqpts; q++) {
             double *qpt, *dmat, *eval, *modeg;
-            if (profile) clock_gettime(CLOCK_REALTIME, &tot_ti);
+            if (profile) clock_gettime(CLOCK_REALTIME, &totfor_ti);
 
             qpt = (rqpts + 3*q);
             eval = (evals + q*3*n_atoms);
@@ -316,9 +323,9 @@ static PyObject *calculate_phonons(PyObject *self, PyObject *args) {
             free((void*)dmat_per_q);
 
             if (profile) {
-                clock_gettime(CLOCK_REALTIME, &tot_tf);
-                total_time = total_time + (tot_tf.tv_sec - tot_ti.tv_sec)
-                    + (tot_tf.tv_nsec - tot_ti.tv_nsec)/((double) 1e9);
+                clock_gettime(CLOCK_REALTIME, &totfor_tf);
+                total_for_time = total_for_time + (totfor_tf.tv_sec - totfor_ti.tv_sec)
+                    + (totfor_tf.tv_nsec - totfor_ti.tv_nsec)/((double) 1e9);
             }
 
         }
@@ -329,7 +336,7 @@ static PyObject *calculate_phonons(PyObject *self, PyObject *args) {
                     omp_get_thread_num());
             fptr = fopen(filename, "w");
             fprintf(fptr, "%-30s %06d %8.4f\n",
-                    "total", 1, total_time);
+                    "total in for loop", 1, total_for_time);
             fprintf(fptr, "%-30s %06d %8.4f\n",
                     "calculate_dyn_mat_at_q", n_calls[0], call_time[0]);
             fprintf(fptr, "%-30s %06d %8.4f\n",
@@ -358,7 +365,16 @@ static PyObject *calculate_phonons(PyObject *self, PyObject *args) {
         Py_DECREF(py_gvecs_cart);
         Py_DECREF(py_dipole_q0);
     }
-
+    if (profile) {
+        clock_gettime(CLOCK_REALTIME, &totpar_tf);
+        total_par_time = (totpar_tf.tv_sec - totpar_ti.tv_sec)
+            + (totpar_tf.tv_nsec - totpar_ti.tv_nsec)/((double) 1e9);
+        FILE *fptr;
+        fptr = fopen("euphonic_c_ext.00.profile", "a");
+        fprintf(fptr, "%-30s %06d %8.4f\n",
+                "total in parallel section", 1, total_par_time);
+        fclose(fptr);
+    }
     return Py_None;
 }
 
