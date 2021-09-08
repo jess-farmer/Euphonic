@@ -93,11 +93,6 @@ class TestRegression:
 
     @pytest.mark.parametrize(
         'intensity_map_args', intensity_map_params_macos_segfault)
-    @pytest.mark.skipif(
-        (any([s in platform() for s in ['Darwin', 'macOS']])
-         and version.parse(scipy_ver) > version.parse('1.1.0')),
-        reason=('Segfaults on some MacOS platforms with Scipy > 1.1.0, may '
-                'be related to https://github.com/google/jax/issues/432'))
     def test_intensity_map_image_data_macos_segfault(
             self, inject_mocks, intensity_map_args):
         self.run_intensity_map_and_test_result(intensity_map_args)

@@ -99,11 +99,6 @@ class TestRegression:
         self.run_powder_map_and_test_result(powder_map_args)
 
     @pytest.mark.parametrize('powder_map_args', powder_map_params_macos_segfault)
-    @pytest.mark.skipif(
-        (any([s in platform() for s in ['Darwin', 'macOS']])
-         and version.parse(scipy_ver) > version.parse('1.1.0')),
-        reason=('Segfaults on some MacOS platforms with Scipy > 1.1.0, may '
-                'be related to https://github.com/google/jax/issues/432'))
     def test_powder_map_plot_image_macos_segfault(
             self, inject_mocks, powder_map_args):
         self.run_powder_map_and_test_result(powder_map_args)
