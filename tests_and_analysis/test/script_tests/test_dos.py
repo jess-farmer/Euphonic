@@ -9,7 +9,8 @@ import numpy.testing as npt
 # Required for mocking
 import matplotlib.pyplot
 
-from tests_and_analysis.test.utils import get_data_path, get_castep_path
+from tests_and_analysis.test.utils import (
+    get_data_path, get_castep_path, get_phonopy_path)
 from tests_and_analysis.test.script_tests.utils import (
     get_script_test_data_path, get_current_plot_line_data,
     args_to_key)
@@ -18,6 +19,8 @@ import euphonic.cli.dos
 
 
 nah_phonon_file = get_castep_path('NaH', 'NaH.phonon')
+nacl_no_evec_yaml_file = os.path.join(
+    get_phonopy_path('NaCl', 'mesh'), 'mesh_no_evec.yaml')
 quartz_fc_file = get_castep_path('quartz', 'quartz.castep_bin')
 dos_output_file = os.path.join(get_script_test_data_path(), 'dos.json')
 dos_params = [
@@ -37,7 +40,8 @@ dos_params = [
     [quartz_fc_file, '--grid', '5', '5', '4'],
     [quartz_fc_file, '--grid', '5', '5', '4', '--adaptive', '--pdos'],
     [quartz_fc_file, '--grid', '5', '5', '4', '--adaptive'],
-    [quartz_fc_file, '--grid', '5', '5', '4', '--adaptive', '--eb', '2']]
+    [quartz_fc_file, '--grid', '5', '5', '4', '--adaptive', '--eb', '2'],
+    [nacl_no_evec_yaml_file]]
 
 
 @pytest.mark.integration
