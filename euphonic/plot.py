@@ -2,6 +2,7 @@ from typing import Optional, Sequence, Tuple, Union
 
 try:
     import matplotlib.pyplot as plt
+    from matplotlib.style import context
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
     from matplotlib.colors import Colormap, Normalize
@@ -283,6 +284,7 @@ def plot_2d(spectra: Union[Spectrum2D, Sequence[Spectrum2D]],
             title: str = '',
             xlabel: str = '',
             ylabel: str = '',
+            intensity_widget: bool = False,
             x_label: str = '',
             y_label: str = '') -> Figure:
     """
@@ -337,9 +339,14 @@ def plot_2d(spectra: Union[Spectrum2D, Sequence[Spectrum2D]],
         return dimensionless_data[-1] - dimensionless_data[0]
     widths = [_get_q_range(spectrum.x_data) for spectrum in spectra]
 
-    fig, axes = plt.subplots(ncols=len(spectra), nrows=1,
-                             gridspec_kw={'width_ratios': widths},
-                             sharey=True, squeeze=False)
+    styles = []
+    if intensity_widget:
+        from euphonic.styles import intensity_widget_style
+        styles = [intensity_widget_style]
+    with context(styles):
+        fig, axes = plt.subplots(ncols=len(spectra), nrows=1,
+                                 gridspec_kw={'width_ratios': widths},
+                                 sharey=True, squeeze=False)
 
     intensity_unit = spectra[0].z_data.units
 
@@ -354,7 +361,6 @@ def plot_2d(spectra: Union[Spectrum2D, Sequence[Spectrum2D]],
         vmax = max(max_z_list)
 
     norm = Normalize(vmin=vmin, vmax=vmax)
-
     for spectrum, ax in zip(spectra, axes.flatten()):
         plot_2d_to_axis(spectrum, ax, cmap=cmap, norm=norm)
 
@@ -367,7 +373,45 @@ def plot_2d(spectra: Union[Spectrum2D, Sequence[Spectrum2D]],
 
     fig.suptitle(title)
 
-    return fig
+    if intensity_widget:
+        # TextBox only available from mpl 2.1.0
+        try:
+            from matplotlib.widgets import TextBox
+        except ImportError:
+            print('Intensity widget cannot be used '
+                  '- Matplotlib >= 2.1.0 required')
+            return
+
+        min_label = f'Min Intensity ({spectrum.z_data.units:~P})'
+        max_label = f'Max Intensity ({spectrum.z_data.units:~P})'
+        boxw = 0.15
+        boxh = 0.05
+        x0 = 0.1 + len(min_label)*0.01
+        y0 = 0.025
+        axmin = fig.add_axes([x0, y0, boxw, boxh])
+        axmax = fig.add_axes([x0, y0 + 0.075, boxw, boxh])
+        image = fig.get_axes()[0].images[0]
+        cmin, cmax = image.get_clim()
+        pad = 0.05
+        fmt_str = '.2e' if cmax < 0.1 else '.2f'
+        minbox = TextBox(axmin, min_label,
+                         initial=f'{cmin:{fmt_str}}', label_pad=pad)
+        maxbox = TextBox(axmax, max_label,
+                         initial=f'{cmax:{fmt_str}}', label_pad=pad)
+        def update_min(min_val):
+            image.set_clim(vmin=float(min_val))
+            fig.canvas.draw()
+
+        def update_max(max_val):
+            image.set_clim(vmax=float(max_val))
+            fig.canvas.draw()
+        minbox.on_submit(update_min)
+        maxbox.on_submit(update_max)
+        # Must retain a reference to the widgets to keep them responsive
+        # so return them
+        return fig, (minbox, maxbox)
+    else:
+        return fig
 
 
 def _set_x_tick_labels(ax: Axes,
